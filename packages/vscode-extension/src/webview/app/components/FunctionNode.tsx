@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 
 export default function FunctionNode({ data }: { data: any }) {
+  const [isHovered, setIsHovered] = useState(false);
   const paramsList = data.params.map((p: any) => p.type ? `${p.name}: ${p.type}` : p.name).join(', ');
 
   const handleGoto = () => {
@@ -39,8 +40,42 @@ export default function FunctionNode({ data }: { data: any }) {
   }
 
   return (
-    <div className="function-node" onClick={handleGoto} style={{ borderColor, borderTopWidth: 4, borderTopColor: kindColor }}>
+    <div 
+      className="function-node" 
+      onClick={handleGoto} 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ 
+        position: 'relative',
+        borderColor, 
+        borderTopWidth: 4, 
+        borderTopColor: kindColor,
+      }}
+    >
       <Handle type="target" position={Position.Left} style={{ background: '#555', border: 'none', width: '8px', height: '8px' }} />
+
+      {isHovered && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); data.onFocus?.(data.id); }}
+          style={{
+            position: 'absolute',
+            top: '-12px',
+            right: '-12px',
+            background: 'var(--vscode-button-background)',
+            color: 'var(--vscode-button-foreground)',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '2px 8px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            zIndex: 10
+          }}
+        >
+          FOCUS
+        </button>
+      )}
       
       <div className="fn-header" style={{ borderBottom: `1px solid ${borderColor}` }}>
         <div>

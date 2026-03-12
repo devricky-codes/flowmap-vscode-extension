@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { Graph } from '@flowmap/core';
 
-export default function Sidebar({ graph }: { graph: Graph }) {
-  const [search, setSearch] = useState('');
+interface SidebarProps {
+  graph: Graph;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}
 
-  const filteredNodes = graph.nodes.filter((n: any) => n.name.toLowerCase().includes(search.toLowerCase()));
+export default function Sidebar({ graph, searchQuery, onSearchChange }: SidebarProps) {
+  const filteredNodes = graph.nodes.filter((n: any) => n.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div style={{
@@ -22,8 +26,8 @@ export default function Sidebar({ graph }: { graph: Graph }) {
         <input 
           type="text" 
           placeholder="Search functions..." 
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+          value={searchQuery}
+          onChange={e => onSearchChange(e.target.value)}
           style={{
             width: '100%',
             padding: '6px 8px',

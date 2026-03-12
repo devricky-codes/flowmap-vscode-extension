@@ -14,6 +14,7 @@ declare global {
 
 export default function App() {
   const [graph, setGraph] = useState<Graph | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -49,14 +50,14 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', backgroundColor: 'var(--vscode-editor-background)' }}>
-      <Sidebar graph={graph} />
+      <Sidebar graph={graph} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       <div style={{ flex: 1, position: 'relative' }}>
         {graph.nodes.length > 500 && (
           <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 10, backgroundColor: 'rgba(234, 179, 8, 0.9)', color: '#000', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>
             Warning: Over 500 nodes detected. Graph performance may degrade.
           </div>
         )}
-        <FlowCanvas graph={graph} />
+        <FlowCanvas graph={graph} searchQuery={searchQuery} />
       </div>
     </div>
   );
