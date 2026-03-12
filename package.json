@@ -1,0 +1,11 @@
+{
+  "name": "flowmap-workspace",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "watch": "pnpm -r watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

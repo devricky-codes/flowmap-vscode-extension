@@ -1,0 +1,113 @@
+{
+  "name": "flowmap",
+  "displayName": "FlowMap",
+  "description": "Interactive call-flow diagrams for any codebase. Local, fast, language-agnostic.",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:flowmap.analyzeWorkspace"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "flowmap.analyzeWorkspace",
+        "title": "FlowMap: Visualize Entire Codebase"
+      },
+      {
+        "command": "flowmap.analyzeCurrentFile",
+        "title": "FlowMap: Visualize Current File"
+      },
+      {
+        "command": "flowmap.traceFromHere",
+        "title": "FlowMap: Trace Flow From This Function"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "flowmap.traceFromHere",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "FlowMap",
+      "properties": {
+        "flowmap.exclude": {
+          "type": "array",
+          "default": [
+            "node_modules",
+            "dist",
+            ".git",
+            "__pycache__",
+            "*.test.*",
+            "*.spec.*"
+          ],
+          "description": "Glob patterns to exclude from analysis"
+        },
+        "flowmap.autoRefresh": {
+          "type": "boolean",
+          "default": false,
+          "description": "Re-analyse on file save"
+        },
+        "flowmap.maxNodes": {
+          "type": "number",
+          "default": 500,
+          "description": "Warn if graph exceeds this many nodes"
+        },
+        "flowmap.layout": {
+          "type": "string",
+          "enum": [
+            "LR",
+            "TB"
+          ],
+          "default": "LR",
+          "description": "Diagram layout direction"
+        },
+        "flowmap.blacklist": {
+          "type": "array",
+          "default": [],
+          "description": "Additional glob patterns to exclude on top of the built-in defaults. Example: ['src/generated', 'src/vendor']"
+        },
+        "flowmap.whitelist": {
+          "type": "array",
+          "default": [],
+          "description": "If non-empty, only files matching these glob patterns are scanned. Example: ['src/core/**', 'src/api/**']. Leave empty to scan everything not blacklisted."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run build",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "pnpm run build:webview && tsc -p ./",
+    "build:webview": "vite build"
+  },
+  "dependencies": {
+    "@flowmap/core": "workspace:*",
+    "@xyflow/react": "^12.0.0",
+    "dagre": "^0.8.5",
+    "lucide-react": "^0.400.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/dagre": "^0.7.52",
+    "@types/node": "20.x",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/vscode": "^1.85.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "tree-sitter-wasms": "^0.1.13",
+    "vite": "^5.0.0"
+  }
+}
