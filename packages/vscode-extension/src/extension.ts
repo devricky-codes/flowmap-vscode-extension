@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { parseFile, buildCallGraph, detectEntryPoints, partitionFlows, initTreeSitter } from '@flowmap/core';
+import * as cp from 'child_process';
+import { parseFile, parseFileContent, buildCallGraph, detectEntryPoints, partitionFlows, initTreeSitter } from '@flowmap/core';
 import { openFlowMapPanel } from './webview/panel';
 
 let treeSitterInitialized = false;
@@ -62,7 +63,7 @@ export async function activate(context: vscode.ExtensionContext) {
             durationMs: Date.now() - startTime
           };
 
-          openFlowMapPanel(context, graph);
+          openFlowMapPanel(context, graph, (g) => computeGitDiff(g, wasmDir));
         }
       );
     } catch (e: any) {
@@ -113,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
             durationMs: Date.now() - startTime
           };
 
-          openFlowMapPanel(context, graph);
+          openFlowMapPanel(context, graph, (g) => computeGitDiff(g, wasmDir));
         }
       );
     } catch (e: any) {
@@ -123,3 +124,85 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {}
+
+// === Git Diff Logic ===
+
+function execGit(cwd: string, args: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cp.exec(`git ${args}`, { cwd, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
+}
+
+async function computeGitDiff(
+  graph: { nodes: any[]; edges: any[] },
+  wasmDir: string
+): Promise<{ newEdgeKeys: string[]; deletedEdgeKeys: string[] }> {
+  try {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceFolder) return { newEdgeKeys: [], deletedEdgeKeys: [] };
+
+    // Check if workspace is a git repository
+    try {
+      await execGit(workspaceFolder, 'rev-parse --is-inside-work-tree');
+    } catch {
+      // Not a git repository — silently return empty
+      return { newEdgeKeys: [], deletedEdgeKeys: [] };
+    }
+
+    // get list of changed files
+    const diffOutput = await execGit(workspaceFolder, 'diff --name-only HEAD');
+    const changedFiles = diffOutput.trim().split('\n').filter(f => f.length > 0);
+
+    if (changedFiles.length === 0) return { newEdgeKeys: [], deletedEdgeKeys: [] };
+
+    const supportedExts = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go'];
+    const relevantFiles = changedFiles.filter(f => supportedExts.some(ext => f.endsWith(ext)));
+
+    if (relevantFiles.length === 0) return { newEdgeKeys: [], deletedEdgeKeys: [] };
+
+    // build old graph from HEAD versions
+    const oldFunctions: any[] = [];
+    const oldCalls: any[] = [];
+
+    for (const filePath of relevantFiles) {
+      let langId = 'typescript' as any;
+      if (filePath.endsWith('.js')) langId = 'javascript';
+      else if (filePath.endsWith('.jsx')) langId = 'jsx';
+      else if (filePath.endsWith('.tsx')) langId = 'tsx';
+      else if (filePath.endsWith('.go')) langId = 'go';
+      else if (filePath.endsWith('.py')) langId = 'python';
+
+      try {
+        const oldContent = await execGit(workspaceFolder, `show HEAD:${filePath.replace(/\\/g, '/')}`);
+        const { functions, calls } = await parseFileContent(filePath, oldContent, wasmDir, langId);
+        oldFunctions.push(...functions);
+        oldCalls.push(...calls);
+      } catch {
+        // file is new, no old version
+      }
+    }
+
+    detectEntryPoints(oldFunctions);
+    const oldEdges = buildCallGraph(oldFunctions, oldCalls);
+
+    // compare edges
+    const oldEdgeSet = new Set(oldEdges.map(e => `${e.from}>>>${e.to}`));
+    const newEdgeSet = new Set(graph.edges.map((e: any) => `${e.from}>>>${e.to}`));
+
+    const newEdgeKeys = graph.edges
+      .filter((e: any) => !oldEdgeSet.has(`${e.from}>>>${e.to}`))
+      .map((_: any, idx: number) => `e${idx}-${graph.edges[idx].from}-${graph.edges[idx].to}`);
+
+    const deletedEdgeKeys = oldEdges
+      .filter(e => !newEdgeSet.has(`${e.from}>>>${e.to}`))
+      .map(e => `${e.from}>>>${e.to}`);
+
+    return { newEdgeKeys, deletedEdgeKeys };
+  } catch (e) {
+    console.error('Git diff failed:', e);
+    return { newEdgeKeys: [], deletedEdgeKeys: [] };
+  }
+}

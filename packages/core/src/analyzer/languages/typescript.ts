@@ -100,6 +100,37 @@ export const typescriptAnalyzer: LanguageAnalyzer = {
       }
     }
 
+    function getReturnValues(node: any): string[] {
+      const returns: string[] = [];
+      function walk(n: any) {
+        if (!n) return;
+        if (n.type === 'return_statement') {
+          const returnClause = n.children.find((c: any) => c.type !== 'return' && c.type !== ';');
+          if (returnClause) returns.push(returnClause.text);
+        } else {
+          for (const child of n.children) {
+            if (n !== node && (
+              child.type === 'function_declaration' ||
+              child.type === 'arrow_function' ||
+              child.type === 'function_expression' ||
+              child.type === 'method_definition'
+            )) continue;
+            walk(child);
+          }
+        }
+      }
+      walk(node);
+      return Array.from(new Set(returns));
+    }
+
+    let finalReturnType = returnCapture ? returnCapture.node.text.replace(/^:\s*/, '') : null;
+    if (!finalReturnType) {
+      const returnValues = getReturnValues(declCapture.node);
+      if (returnValues.length > 0) {
+        finalReturnType = returnValues.join(' | ');
+      }
+    }
+
     return {
       id: `${filePath}::${rawName}::${declCapture.node.startPosition.row}`,
       name: rawName,
@@ -107,7 +138,7 @@ export const typescriptAnalyzer: LanguageAnalyzer = {
       startLine: declCapture.node.startPosition.row,
       endLine: declCapture.node.endPosition.row,
       params: paramsList,
-      returnType: returnCapture ? returnCapture.node.text.replace(/^:\s*/, '') : null,
+      returnType: finalReturnType,
       isAsync: declCapture.node.text.startsWith('async'),
       isExported,
       isEntryPoint: isDefaultExport,

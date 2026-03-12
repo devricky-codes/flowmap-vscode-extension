@@ -57,3 +57,37 @@ export async function parseFile(
 
   return { functions, calls };
 }
+
+export async function parseFileContent(
+  filePath: string,
+  content: string,
+  wasmDirectory: string,
+  languageId: SupportedLanguage
+): Promise<{ functions: FunctionNode[], calls: RawCall[] }> {
+  const analyzer = ANALYZERS[languageId];
+  if (!analyzer) return { functions: [], calls: [] };
+
+  const treeSitterLang = await loadLanguage(languageId, wasmDirectory);
+  
+  const parser = new Parser();
+  parser.setLanguage(treeSitterLang);
+  const tree = parser.parse(content);
+
+  const functionQuery = treeSitterLang.query(analyzer.functionQuery);
+  const callQuery = treeSitterLang.query(analyzer.callQuery);
+
+  const functions: FunctionNode[] = [];
+  const calls: RawCall[] = [];
+
+  for (const match of functionQuery.matches(tree.rootNode)) {
+    const fn = analyzer.extractFunction(match, filePath);
+    if (fn) functions.push(fn);
+  }
+
+  for (const match of callQuery.matches(tree.rootNode)) {
+    const call = analyzer.extractCall(match, filePath);
+    if (call) calls.push(call);
+  }
+
+  return { functions, calls };
+}

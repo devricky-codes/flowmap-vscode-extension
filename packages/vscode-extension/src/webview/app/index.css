@@ -94,6 +94,11 @@ body {
   color: var(--text-main);
   margin-top: 6px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-height: 100px;
+  overflow-y: auto;
+  font-family: var(--vscode-editor-font-family), monospace;
 }

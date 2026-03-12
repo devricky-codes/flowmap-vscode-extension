@@ -2,7 +2,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Graph } from '@flowmap/core';
 
-export function openFlowMapPanel(context: vscode.ExtensionContext, graph: Graph) {
+export function openFlowMapPanel(
+  context: vscode.ExtensionContext, 
+  graph: Graph,
+  computeGitDiff?: (graph: { nodes: any[]; edges: any[] }) => Promise<{ newEdgeKeys: string[]; deletedEdgeKeys: string[] }>
+) {
   const panel = vscode.window.createWebviewPanel(
     'flowmap',
     'FlowMap',
@@ -18,7 +22,7 @@ export function openFlowMapPanel(context: vscode.ExtensionContext, graph: Graph)
 
   panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
 
-  panel.webview.onDidReceiveMessage(msg => {
+  panel.webview.onDidReceiveMessage(async msg => {
     if (msg.type === 'READY') {
       panel.webview.postMessage({ type: 'LOAD_GRAPH', graph });
     }
@@ -31,6 +35,11 @@ export function openFlowMapPanel(context: vscode.ExtensionContext, graph: Graph)
         selection: new vscode.Range(msg.startLine, 0, msg.startLine, 0),
         preserveFocus: false,
       });
+    }
+
+    if (msg.type === 'REQUEST_GIT_DIFF' && computeGitDiff) {
+      const diff = await computeGitDiff(graph);
+      panel.webview.postMessage({ type: 'GIT_DIFF_RESULT', ...diff });
     }
   });
 }

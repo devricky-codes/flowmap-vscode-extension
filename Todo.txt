@@ -1,0 +1,7 @@
+Ignore going through this file. This is only for the author.
+
+- Publish npm package
+- Publish extension
+- Build MCP
+
+End of Project.

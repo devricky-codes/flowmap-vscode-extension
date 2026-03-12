@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { Graph } from '@flowmap/core';
+import { GraphAnalysisState } from '../App';
 
 interface SidebarProps {
   graph: Graph;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  analysisState: GraphAnalysisState;
+  setAnalysisState: React.Dispatch<React.SetStateAction<GraphAnalysisState>>;
 }
 
-export default function Sidebar({ graph, searchQuery, onSearchChange }: SidebarProps) {
+export default function Sidebar({ graph, searchQuery, onSearchChange, analysisState, setAnalysisState }: SidebarProps) {
   const filteredNodes = graph.nodes.filter((n: any) => n.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const toggleFeature = (key: keyof GraphAnalysisState) => {
+    setAnalysisState(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <div style={{
@@ -56,6 +63,52 @@ export default function Sidebar({ graph, searchQuery, onSearchChange }: SidebarP
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 8px 0', color: 'var(--vscode-sideBarTitle-foreground)' }}>
+            Graph Analysis
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.heatmap} onChange={() => toggleFeature('heatmap')} />
+              Coupling Heatmap
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.impactRadius} onChange={() => toggleFeature('impactRadius')} />
+              Impact Radius Focus
+            </label>
+            {analysisState.impactRadius && (
+              <div style={{ marginLeft: '24px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                <span>Depth:</span>
+                <button 
+                  onClick={() => setAnalysisState(prev => ({ ...prev, impactDepth: Math.max(1, prev.impactDepth - 1) }))}
+                  style={{ width: '22px', height: '22px', background: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >−</button>
+                <span style={{ minWidth: '16px', textAlign: 'center', fontWeight: 600 }}>{analysisState.impactDepth}</span>
+                <button 
+                  onClick={() => setAnalysisState(prev => ({ ...prev, impactDepth: prev.impactDepth + 1 }))}
+                  style={{ width: '22px', height: '22px', background: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >+</button>
+              </div>
+            )}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.circularDependency} onChange={() => toggleFeature('circularDependency')} />
+              Circular Dependencies
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.complexityGlow} onChange={() => toggleFeature('complexityGlow')} />
+              Complexity Glow
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.gitDiff} onChange={() => toggleFeature('gitDiff')} />
+              Git Flow Diff
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={analysisState.moduleClustering} onChange={() => toggleFeature('moduleClustering')} />
+              Module Clusters
+            </label>
           </div>
         </div>
 

@@ -39,17 +39,23 @@ export default function FunctionNode({ data }: { data: any }) {
       break;
   }
 
+  // Analysis overrides from FlowCanvas (heatmap, cycles, clusters, glow)
+  const overrides = data.analysisOverrides || {};
+  const finalBorderColor = overrides.borderColor || borderColor;
+  const finalTopColor = overrides.borderTopColor || kindColor;
+
   return (
     <div 
       className="function-node" 
       onClick={handleGoto} 
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => { setIsHovered(true); data.onHover?.(data.id); }}
+      onMouseLeave={() => { setIsHovered(false); data.onHoverEnd?.(); }}
       style={{ 
         position: 'relative',
-        borderColor, 
+        borderColor: finalBorderColor, 
         borderTopWidth: 4, 
-        borderTopColor: kindColor,
+        borderTopColor: finalTopColor,
+        boxShadow: overrides.boxShadow || undefined,
       }}
     >
       <Handle type="target" position={Position.Left} style={{ background: '#555', border: 'none', width: '8px', height: '8px' }} />
@@ -77,7 +83,7 @@ export default function FunctionNode({ data }: { data: any }) {
         </button>
       )}
       
-      <div className="fn-header" style={{ borderBottom: `1px solid ${borderColor}` }}>
+      <div className="fn-header" style={{ borderBottom: `1px solid ${finalBorderColor}` }}>
         <div>
           <div className="fn-name">{data.name}</div>
           <div className="fn-path">{shortPath}</div>
@@ -92,9 +98,9 @@ export default function FunctionNode({ data }: { data: any }) {
         ({paramsList})
       </div>
 
-      {data.returnType && (
-        <div className="fn-return">
-          <span style={{ opacity: 0.6 }}>→</span> {data.returnType}
+      {data.returnType && data.kind !== 'component' && (
+        <div className="fn-return" title={data.returnType}>
+          <span style={{ opacity: 0.6 }}>→</span> {data.returnType.length > 30 ? data.returnType.substring(0, 30) + '...' : data.returnType}
         </div>
       )}
 
