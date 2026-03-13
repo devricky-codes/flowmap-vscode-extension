@@ -246,16 +246,31 @@ interface FlowCanvasProps {
   graph: Graph;
   searchQuery: string;
   analysisState: GraphAnalysisState;
+  focusedNodeId: string | null;
+  setFocusedNodeId: (id: string | null) => void;
 }
 
-export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCanvasProps) {
+export default function FlowCanvas({ graph, searchQuery, analysisState, focusedNodeId, setFocusedNodeId }: FlowCanvasProps) {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => getLayoutedElements(graph), [graph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   
-  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+
+  // Focus effect for panning
+  useEffect(() => {
+    if (focusedNodeId && reactFlowInstance) {
+      const node = nodes.find((n: Node) => n.id === focusedNodeId);
+      if (node) {
+        // We pan to the node
+        const x = node.position.x + (node.width || 280) / 2;
+        const y = node.position.y + (node.height || 120) / 2;
+        reactFlowInstance.setCenter(x, y, { zoom: 1, duration: 800 });
+      }
+    }
+  }, [focusedNodeId, reactFlowInstance, nodes]);
 
   // ─── Local Search Isolation ───────────
   const searchIsolatedResult = useMemo(() => {
@@ -492,6 +507,7 @@ export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCa
         edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onInit={setReactFlowInstance}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.1}

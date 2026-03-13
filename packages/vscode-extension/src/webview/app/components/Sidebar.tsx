@@ -13,9 +13,11 @@ interface SidebarProps {
   blacklist: string[];
   setBlacklist: React.Dispatch<React.SetStateAction<string[]>>;
   isLargeGraph: boolean;
+  focusedNodeId: string | null;
+  setFocusedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-export default function Sidebar({ graph, searchQuery, onSearchChange, analysisState, setAnalysisState, selectedFlows, setSelectedFlows, blacklist, setBlacklist, isLargeGraph }: SidebarProps) {
+export default function Sidebar({ graph, searchQuery, onSearchChange, analysisState, setAnalysisState, selectedFlows, setSelectedFlows, blacklist, setBlacklist, isLargeGraph, focusedNodeId, setFocusedNodeId }: SidebarProps) {
   const [localBlacklist, setLocalBlacklist] = useState(blacklist.join('\n'));
 
   // Sync local if external changes
@@ -196,9 +198,18 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
               <div 
                 key={n.id} 
                 className="sidebar-node"
-                style={{ fontSize: '12px', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
+                style={{ 
+                  fontSize: '12px', 
+                  padding: '4px 6px', 
+                  borderRadius: '4px', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  background: focusedNodeId === n.id ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                  color: focusedNodeId === n.id ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit',
+                }}
                 onClick={() => {
-                  window.vscode.postMessage({ type: 'GOTO_FUNCTION', filePath: n.filePath, startLine: n.startLine });
+                  setFocusedNodeId(prev => prev === n.id ? null : n.id);
                 }}
               >
                 <span style={{ fontFamily: 'var(--vscode-editor-font-family)' }}>{n.name}</span>

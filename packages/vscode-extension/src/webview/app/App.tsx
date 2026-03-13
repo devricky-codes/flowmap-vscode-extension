@@ -27,6 +27,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFlows, setSelectedFlows] = useState<Set<string>>(new Set());
   const [blacklist, setBlacklist] = useState<string[]>([]);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 
   const [analysisState, setAnalysisState] = useState<GraphAnalysisState>({
     heatmap: false,
@@ -60,19 +61,37 @@ export default function App() {
 
   const isLargeGraph = graph ? graph.nodes.length > 500 : false;
   
-  // Large graphs: if no specific flows are selected, we pass an empty graph 
-  // or a filtered graph. Actually we just filter `graph` object.
+  // Large graphs: Filter nodes by selected flows, and ensure focused nodes are included.
   const displayGraph = React.useMemo(() => {
     if (!graph) return null;
-    if (!isLargeGraph || selectedFlows.size === 0) return graph;
-    const filteredNodes = graph.nodes.filter(n => 
-      graph.flows.some(f => selectedFlows.has(f.id) && f.nodeIds.includes(n.id))
-    );
-    const nodeIds = new Set(filteredNodes.map(n => n.id));
-    const filteredEdges = graph.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+    if (!isLargeGraph) return graph;
+
+    const activeNodeIds = new Set<string>();
+
+    if (selectedFlows.size > 0) {
+      graph.flows.forEach(f => {
+        if (selectedFlows.has(f.id)) {
+          f.nodeIds.forEach(id => activeNodeIds.add(id));
+        }
+      });
+    }
+
+    if (focusedNodeId) {
+      activeNodeIds.add(focusedNodeId);
+      graph.edges.forEach(e => {
+        if (e.from === focusedNodeId) activeNodeIds.add(e.to);
+        if (e.to === focusedNodeId) activeNodeIds.add(e.from);
+      });
+    }
+
+    if (activeNodeIds.size === 0) return graph;
+
+    const filteredNodes = graph.nodes.filter(n => activeNodeIds.has(n.id));
+    const filteredEdges = graph.edges.filter(e => activeNodeIds.has(e.from) && activeNodeIds.has(e.to));
     const filteredFlows = graph.flows.filter(f => selectedFlows.has(f.id));
+
     return { ...graph, nodes: filteredNodes, edges: filteredEdges, flows: filteredFlows };
-  }, [graph, isLargeGraph, selectedFlows]);
+  }, [graph, isLargeGraph, selectedFlows, focusedNodeId]);
 
   if (!graph) {
     return (
@@ -103,19 +122,23 @@ export default function App() {
         blacklist={blacklist}
         setBlacklist={setBlacklist}
         isLargeGraph={isLargeGraph}
+        focusedNodeId={focusedNodeId}
+        setFocusedNodeId={setFocusedNodeId}
       />
       <div style={{ flex: 1, position: 'relative' }}>
-        {isLargeGraph && selectedFlows.size === 0 && (
+        {isLargeGraph && selectedFlows.size === 0 && !focusedNodeId && (
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, color: 'var(--vscode-editor-foreground)', textAlign: 'center' }}>
             <h2>Large Codebase Detected ({graph.nodes.length} nodes)</h2>
             <p>Please select one or more flows from the sidebar to render the graph.</p>
           </div>
         )}
-        {(!isLargeGraph || selectedFlows.size > 0) && displayGraph && (
+        {(!isLargeGraph || selectedFlows.size > 0 || focusedNodeId) && displayGraph && (
           <FlowCanvas 
             graph={displayGraph} 
             searchQuery={searchQuery} 
             analysisState={analysisState}
+            focusedNodeId={focusedNodeId}
+            setFocusedNodeId={setFocusedNodeId}
           />
         )}
       </div>
