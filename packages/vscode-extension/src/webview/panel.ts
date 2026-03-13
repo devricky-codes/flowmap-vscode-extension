@@ -12,7 +12,7 @@ export function openFlowMapPanel(
   if (currentPanel) {
     const config = vscode.workspace.getConfiguration('flowmap');
     const blacklist = config.get<string[]>('exclude') || [
-      "node_modules", "dist", ".git", "__pycache__", "*.test.*", "*.spec.*"
+      "node_modules", "dist", "build", ".git", "__pycache__", "*.test.*", "*.spec.*"
     ];
     currentPanel.webview.postMessage({ type: 'LOAD_GRAPH', graph, flowmapConfig: { blacklist } });
     currentPanel.reveal(vscode.ViewColumn.Beside);

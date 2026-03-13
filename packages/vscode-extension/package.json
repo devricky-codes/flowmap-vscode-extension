@@ -46,6 +46,7 @@
           "default": [
             "node_modules",
             "dist",
+            "build",
             ".git",
             "__pycache__",
             "*.test.*",

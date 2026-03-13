@@ -255,6 +255,31 @@ export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCa
   
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  // ─── Local Search Isolation ───────────
+  const searchIsolatedResult = useMemo(() => {
+    if (!localSearchQuery) return null;
+    const lowerQuery = localSearchQuery.toLowerCase();
+    
+    // Find all nodes that match
+    const matchingNodeIds = nodes
+      .filter((n: any) => typeof n.data?.name === 'string' && n.data.name.toLowerCase().includes(lowerQuery))
+      .map((n: any) => n.id);
+      
+    if (matchingNodeIds.length === 0) return { nodeIds: new Set<string>(), edgeIds: new Set<string>() };
+    
+    const finalNodeIds = new Set<string>();
+    const finalEdgeIds = new Set<string>();
+    
+    matchingNodeIds.forEach(startId => {
+       const res = bfs(startId, graph, 1);
+       res.nodeIds.forEach(id => finalNodeIds.add(id));
+       res.edgeIds.forEach(id => finalEdgeIds.add(id));
+    });
+    
+    return { nodeIds: finalNodeIds, edgeIds: finalEdgeIds };
+  }, [localSearchQuery, nodes, graph]);
 
   // ─── Git Diff state ─────────────────────
   const [gitDiffData, setGitDiffData] = useState<{ newEdgeKeys: Set<string>; deletedEdgeKeys: Set<string> } | null>(null);
@@ -381,8 +406,14 @@ export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCa
         }
       }
 
+      let hidden = false;
+      if (searchIsolatedResult && !searchIsolatedResult.nodeIds.has(node.id)) {
+        hidden = true;
+      }
+
       return {
         ...node,
+        hidden,
         data: {
           ...node.data,
           onFocus: setFocusedNodeId,
@@ -393,15 +424,20 @@ export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCa
         style: { ...node.style, opacity, transition: 'opacity 0.2s ease-in-out' }
       };
     });
-  }, [nodes, focusedNodeId, hoveredNodeId, connectedNodeIds, searchQuery, analysisState, degreeMap, maxDegree, impactResult, impactTargetId, cycleResult, complexityMap, clusterMap]);
+  }, [nodes, focusedNodeId, hoveredNodeId, connectedNodeIds, searchQuery, analysisState, degreeMap, maxDegree, impactResult, impactTargetId, cycleResult, complexityMap, clusterMap, searchIsolatedResult]);
 
   // ─── Compute display edges ─────────────
   const displayEdges = useMemo(() => {
-    return edges.map(edge => {
+    return edges.map((edge: any) => {
       let opacity = 1;
       let stroke = '#94a3b8';
       let strokeWidth = 2;
+      let hidden = false;
       
+      if (searchIsolatedResult && !searchIsolatedResult.edgeIds.has(edge.id)) {
+        hidden = true;
+      }
+
       if (impactTargetId && analysisState.impactRadius && impactResult) {
         opacity = impactResult.edgeIds.has(edge.id) ? 1 : 0.15;
       } else if (focusedNodeId && !analysisState.impactRadius) {
@@ -424,13 +460,33 @@ export default function FlowCanvas({ graph, searchQuery, analysisState }: FlowCa
 
       return {
         ...edge,
+        hidden,
         style: { ...edge.style, stroke, strokeWidth, opacity, transition: 'opacity 0.2s ease-in-out' }
       };
     });
-  }, [edges, focusedNodeId, hoveredNodeId, connectedEdgeIds, analysisState, impactResult, impactTargetId, cycleResult, gitDiffData]);
+  }, [edges, focusedNodeId, hoveredNodeId, connectedEdgeIds, analysisState, impactResult, impactTargetId, cycleResult, gitDiffData, searchIsolatedResult]);
 
   return (
     <>
+      <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}>
+        <input 
+          type="text" 
+          placeholder="Isolate by node..." 
+          value={localSearchQuery}
+          onChange={e => setLocalSearchQuery(e.target.value)}
+          style={{
+            padding: '6px 12px',
+            background: 'var(--vscode-input-background)',
+            color: 'var(--vscode-input-foreground)',
+            border: '1px solid var(--vscode-input-border)',
+            borderRadius: '4px',
+            width: '240px',
+            outline: 'none',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          }}
+        />
+      </div>
+
       <ReactFlow
         nodes={displayNodes}
         edges={displayEdges}

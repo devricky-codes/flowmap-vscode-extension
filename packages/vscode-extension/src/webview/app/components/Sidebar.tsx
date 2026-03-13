@@ -23,7 +23,9 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
     setLocalBlacklist(blacklist.join('\n'));
   }, [blacklist]);
 
-  const filteredNodes = graph.nodes.filter((n: any) => n.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Keep deduplication robust
+  const uniqueNodes = Array.from(new Map(graph.nodes.map((n: any) => [n.id, n])).values());
+  const filteredNodes = uniqueNodes.filter((n: any) => n.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const toggleFeature = (key: keyof GraphAnalysisState) => {
     setAnalysisState(prev => ({ ...prev, [key]: !prev[key] }));
@@ -43,6 +45,9 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
     setBlacklist(list);
     window.vscode.postMessage({ type: 'UPDATE_BLACKLIST', blacklist: list });
   };
+
+  // Deduplicate flows in case the graph parser provided overlapping ones
+  const uniqueFlows = Array.from(new Map(graph.flows.map((f: any) => [f.id, f])).values());
 
   return (
     <div style={{
@@ -76,35 +81,6 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 8px 0', color: 'var(--vscode-sideBarTitle-foreground)' }}>
-            Detected Flows ({graph.flows.length}) {isLargeGraph && '(Select to Render)'}
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {graph.flows.map((f: any) => {
-              const entryName = f.entryPoint ? graph.nodes.find((n: any) => n.id === f.entryPoint)?.name || 'Unknown' : 'Orphan Functions';
-              const isSelected = selectedFlows.has(f.id);
-              return (
-                <div 
-                  key={f.id} 
-                  onClick={() => toggleFlow(f.id)}
-                  style={{ 
-                    padding: '6px 8px', 
-                    background: isSelected ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-list-inactiveSelectionBackground)', 
-                    color: isSelected ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit',
-                    border: isSelected ? '1px solid var(--vscode-focusBorder)' : '1px solid transparent',
-                    borderRadius: '4px', 
-                    cursor: 'pointer', 
-                    fontSize: '13px' 
-                  }}
-                >
-                  <div style={{ fontWeight: 500 }}>{entryName}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.7, marginTop: '2px' }}>{f.nodeIds.length} nodes</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         <div style={{ marginBottom: '24px' }}>
           <h3 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 8px 0', color: 'var(--vscode-sideBarTitle-foreground)' }}>
@@ -181,12 +157,42 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
           </div>
         </div>
 
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 8px 0', color: 'var(--vscode-sideBarTitle-foreground)' }}>
+            Detected Flows ({uniqueFlows.length}) {isLargeGraph && '(Select to Render)'}
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {uniqueFlows.map((f: any) => {
+              const entryName = f.entryPoint ? graph.nodes.find((n: any) => n.id === f.entryPoint)?.name || 'Unknown' : 'Orphan Functions';
+              const isSelected = selectedFlows.has(f.id);
+              return (
+                <div 
+                  key={f.id} 
+                  onClick={() => toggleFlow(f.id)}
+                  style={{ 
+                    padding: '6px 8px', 
+                    background: isSelected ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-list-inactiveSelectionBackground)', 
+                    color: isSelected ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit',
+                    border: isSelected ? '1px solid var(--vscode-focusBorder)' : '1px solid transparent',
+                    borderRadius: '4px', 
+                    cursor: 'pointer', 
+                    fontSize: '13px' 
+                  }}
+                >
+                  <div style={{ fontWeight: 500 }}>{entryName}</div>
+                  <div style={{ fontSize: '11px', opacity: 0.7, marginTop: '2px' }}>{f.nodeIds.length} nodes</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div>
           <h3 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 8px 0', color: 'var(--vscode-sideBarTitle-foreground)' }}>
             Functions ({filteredNodes.length})
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {filteredNodes.slice(0, 100).map((n: any) => (
+            {filteredNodes.map((n: any) => (
               <div 
                 key={n.id} 
                 className="sidebar-node"
@@ -199,11 +205,6 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
                 {n.isEntryPoint && <span style={{ fontSize: '10px', color: 'var(--vscode-testing-iconPassed)' }}>ENTRY</span>}
               </div>
             ))}
-            {filteredNodes.length > 100 && (
-              <div style={{ fontSize: '11px', opacity: 0.5, fontStyle: 'italic', marginTop: '8px' }}>
-                And {filteredNodes.length - 100} more...
-              </div>
-            )}
           </div>
         </div>
       </div>

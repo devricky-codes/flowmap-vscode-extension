@@ -28,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
           const config = vscode.workspace.getConfiguration('flowmap');
           const blacklist = config.get<string[]>('blacklist') || [];
           const whitelist = config.get<string[]>('whitelist') || [];
-          const defaultExcludes = config.get<string[]>('exclude') || ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/__pycache__/**", "**/*.test.*", "**/*.spec.*"];
+          const defaultExcludes = config.get<string[]>('exclude') || ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**", "**/__pycache__/**", "**/*.test.*", "**/*.spec.*"];
           
           let excludePattern = `{${defaultExcludes.join(',')}}`;
           // We'll still fetch all supported types, then manually filter using user blacklist/whitelist
