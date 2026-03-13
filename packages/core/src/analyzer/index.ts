@@ -39,23 +39,33 @@ export async function parseFile(
   parser.setLanguage(treeSitterLang);
   const tree = parser.parse(content);
 
-  const functionQuery = treeSitterLang.query(analyzer.functionQuery);
-  const callQuery = treeSitterLang.query(analyzer.callQuery);
+  let functionQuery: Parser.Query | null = null;
+  let callQuery: Parser.Query | null = null;
 
-  const functions: FunctionNode[] = [];
-  const calls: RawCall[] = [];
+  try {
+    functionQuery = treeSitterLang.query(analyzer.functionQuery);
+    callQuery = treeSitterLang.query(analyzer.callQuery);
 
-  for (const match of functionQuery.matches(tree.rootNode)) {
-    const fn = analyzer.extractFunction(match, filePath);
-    if (fn) functions.push(fn);
+    const functions: FunctionNode[] = [];
+    const calls: RawCall[] = [];
+
+    for (const match of functionQuery.matches(tree.rootNode)) {
+      const fn = analyzer.extractFunction(match, filePath);
+      if (fn) functions.push(fn);
+    }
+
+    for (const match of callQuery.matches(tree.rootNode)) {
+      const call = analyzer.extractCall(match, filePath);
+      if (call) calls.push(call);
+    }
+
+    return { functions, calls };
+  } finally {
+    if (functionQuery) functionQuery.delete();
+    if (callQuery) callQuery.delete();
+    if (tree) tree.delete();
+    if (parser) parser.delete();
   }
-
-  for (const match of callQuery.matches(tree.rootNode)) {
-    const call = analyzer.extractCall(match, filePath);
-    if (call) calls.push(call);
-  }
-
-  return { functions, calls };
 }
 
 export async function parseFileContent(
@@ -73,21 +83,31 @@ export async function parseFileContent(
   parser.setLanguage(treeSitterLang);
   const tree = parser.parse(content);
 
-  const functionQuery = treeSitterLang.query(analyzer.functionQuery);
-  const callQuery = treeSitterLang.query(analyzer.callQuery);
+  let functionQuery: Parser.Query | null = null;
+  let callQuery: Parser.Query | null = null;
 
-  const functions: FunctionNode[] = [];
-  const calls: RawCall[] = [];
+  try {
+    functionQuery = treeSitterLang.query(analyzer.functionQuery);
+    callQuery = treeSitterLang.query(analyzer.callQuery);
 
-  for (const match of functionQuery.matches(tree.rootNode)) {
-    const fn = analyzer.extractFunction(match, filePath);
-    if (fn) functions.push(fn);
+    const functions: FunctionNode[] = [];
+    const calls: RawCall[] = [];
+
+    for (const match of functionQuery.matches(tree.rootNode)) {
+      const fn = analyzer.extractFunction(match, filePath);
+      if (fn) functions.push(fn);
+    }
+
+    for (const match of callQuery.matches(tree.rootNode)) {
+      const call = analyzer.extractCall(match, filePath);
+      if (call) calls.push(call);
+    }
+
+    return { functions, calls };
+  } finally {
+    if (functionQuery) functionQuery.delete();
+    if (callQuery) callQuery.delete();
+    if (tree) tree.delete();
+    if (parser) parser.delete();
   }
-
-  for (const match of callQuery.matches(tree.rootNode)) {
-    const call = analyzer.extractCall(match, filePath);
-    if (call) calls.push(call);
-  }
-
-  return { functions, calls };
 }

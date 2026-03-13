@@ -3,6 +3,7 @@ import * as path from 'path';
 import { SupportedLanguage } from '../types';
 
 let initialized = false;
+const languageCache = new Map<SupportedLanguage, Parser.Language>();
 
 export async function initTreeSitter(wasmDirectory: string): Promise<void> {
   if (initialized) return;
@@ -16,6 +17,12 @@ export async function loadLanguage(
   lang: SupportedLanguage,
   wasmDirectory: string
 ): Promise<Parser.Language> {
-  const wasmPath = path.join(wasmDirectory, `tree-sitter-${lang}.wasm`);
-  return Parser.Language.load(wasmPath);
+  if (languageCache.has(lang)) {
+    return languageCache.get(lang)!;
+  }
+  const wasmName = lang === 'jsx' ? 'javascript' : lang;
+  const wasmPath = path.join(wasmDirectory, `tree-sitter-${wasmName}.wasm`);
+  const language = await Parser.Language.load(wasmPath);
+  languageCache.set(lang, language);
+  return language;
 }
