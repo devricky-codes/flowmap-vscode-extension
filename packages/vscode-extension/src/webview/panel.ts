@@ -2,46 +2,68 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Graph } from '@flowmap/core';
 
+export let currentPanel: vscode.WebviewPanel | undefined;
+
 export function openFlowMapPanel(
   context: vscode.ExtensionContext, 
   graph: Graph,
   computeGitDiff?: (graph: { nodes: any[]; edges: any[] }) => Promise<{ newEdgeKeys: string[]; deletedEdgeKeys: string[] }>
 ) {
-  const panel = vscode.window.createWebviewPanel(
-    'flowmap',
-    'FlowMap',
-    vscode.ViewColumn.Beside,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(context.extensionUri, 'media')
-      ],
-    }
-  );
+  if (currentPanel) {
+    const config = vscode.workspace.getConfiguration('flowmap');
+    const blacklist = config.get<string[]>('exclude') || [
+      "node_modules", "dist", ".git", "__pycache__", "*.test.*", "*.spec.*"
+    ];
+    currentPanel.webview.postMessage({ type: 'LOAD_GRAPH', graph, flowmapConfig: { blacklist } });
+    currentPanel.reveal(vscode.ViewColumn.Beside);
+  } else {
+    currentPanel = vscode.window.createWebviewPanel(
+      'flowmap',
+      'FlowMap',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(context.extensionUri, 'media')
+        ],
+      }
+    );
 
-  panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
+    currentPanel.onDidDispose(() => { currentPanel = undefined; });
+    currentPanel.webview.html = getWebviewHtml(currentPanel.webview, context.extensionUri);
 
-  panel.webview.onDidReceiveMessage(async msg => {
-    if (msg.type === 'READY') {
-      panel.webview.postMessage({ type: 'LOAD_GRAPH', graph });
-    }
+    currentPanel.webview.onDidReceiveMessage(async msg => {
+      if (msg.type === 'READY') {
+        const config = vscode.workspace.getConfiguration('flowmap');
+        const blacklist = config.get<string[]>('exclude') || [
+          "node_modules", "dist", ".git", "__pycache__", "*.test.*", "*.spec.*"
+        ];
+        currentPanel?.webview.postMessage({ type: 'LOAD_GRAPH', graph, flowmapConfig: { blacklist } });
+      }
 
-    if (msg.type === 'GOTO_FUNCTION') {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-      const uri = vscode.Uri.file(path.join(workspaceFolder, msg.filePath));
-      
-      vscode.window.showTextDocument(uri, {
-        selection: new vscode.Range(msg.startLine, 0, msg.startLine, 0),
-        preserveFocus: false,
-      });
-    }
+      if (msg.type === 'UPDATE_BLACKLIST') {
+        const config = vscode.workspace.getConfiguration('flowmap');
+        await config.update('exclude', msg.blacklist, vscode.ConfigurationTarget.Workspace);
+        vscode.commands.executeCommand('flowmap.analyzeWorkspace');
+      }
 
-    if (msg.type === 'REQUEST_GIT_DIFF' && computeGitDiff) {
-      const diff = await computeGitDiff(graph);
-      panel.webview.postMessage({ type: 'GIT_DIFF_RESULT', ...diff });
-    }
-  });
+      if (msg.type === 'GOTO_FUNCTION') {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+        const uri = vscode.Uri.file(path.join(workspaceFolder, msg.filePath));
+        
+        vscode.window.showTextDocument(uri, {
+          selection: new vscode.Range(msg.startLine, 0, msg.startLine, 0),
+          preserveFocus: false,
+        });
+      }
+
+      if (msg.type === 'REQUEST_GIT_DIFF' && computeGitDiff) {
+        const diff = await computeGitDiff(graph);
+        currentPanel?.webview.postMessage({ type: 'GIT_DIFF_RESULT', ...diff });
+      }
+    });
+  }
 }
 
 function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {

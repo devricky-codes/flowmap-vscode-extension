@@ -25,6 +25,8 @@ declare global {
 export default function App() {
   const [graph, setGraph] = useState<Graph | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFlows, setSelectedFlows] = useState<Set<string>>(new Set());
+  const [blacklist, setBlacklist] = useState<string[]>([]);
 
   const [analysisState, setAnalysisState] = useState<GraphAnalysisState>({
     heatmap: false,
@@ -40,7 +42,11 @@ export default function App() {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'LOAD_GRAPH') {
-        setGraph(message.graph);
+        const { graph: loadedGraph, flowmapConfig } = message;
+        setGraph(loadedGraph);
+        if (flowmapConfig?.blacklist) {
+          setBlacklist(flowmapConfig.blacklist);
+        }
       }
     };
 
@@ -51,6 +57,22 @@ export default function App() {
 
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  const isLargeGraph = graph ? graph.nodes.length > 500 : false;
+  
+  // Large graphs: if no specific flows are selected, we pass an empty graph 
+  // or a filtered graph. Actually we just filter `graph` object.
+  const displayGraph = React.useMemo(() => {
+    if (!graph) return null;
+    if (!isLargeGraph || selectedFlows.size === 0) return graph;
+    const filteredNodes = graph.nodes.filter(n => 
+      graph.flows.some(f => selectedFlows.has(f.id) && f.nodeIds.includes(n.id))
+    );
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredEdges = graph.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+    const filteredFlows = graph.flows.filter(f => selectedFlows.has(f.id));
+    return { ...graph, nodes: filteredNodes, edges: filteredEdges, flows: filteredFlows };
+  }, [graph, isLargeGraph, selectedFlows]);
 
   if (!graph) {
     return (
@@ -76,18 +98,26 @@ export default function App() {
         onSearchChange={setSearchQuery}
         analysisState={analysisState}
         setAnalysisState={setAnalysisState}
+        selectedFlows={selectedFlows}
+        setSelectedFlows={setSelectedFlows}
+        blacklist={blacklist}
+        setBlacklist={setBlacklist}
+        isLargeGraph={isLargeGraph}
       />
       <div style={{ flex: 1, position: 'relative' }}>
-        {graph.nodes.length > 500 && (
-          <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 10, backgroundColor: 'rgba(234, 179, 8, 0.9)', color: '#000', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>
-            Warning: Over 500 nodes detected. Graph performance may degrade.
+        {isLargeGraph && selectedFlows.size === 0 && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, color: 'var(--vscode-editor-foreground)', textAlign: 'center' }}>
+            <h2>Large Codebase Detected ({graph.nodes.length} nodes)</h2>
+            <p>Please select one or more flows from the sidebar to render the graph.</p>
           </div>
         )}
-        <FlowCanvas 
-          graph={graph} 
-          searchQuery={searchQuery} 
-          analysisState={analysisState}
-        />
+        {(!isLargeGraph || selectedFlows.size > 0) && displayGraph && (
+          <FlowCanvas 
+            graph={displayGraph} 
+            searchQuery={searchQuery} 
+            analysisState={analysisState}
+          />
+        )}
       </div>
     </div>
   );

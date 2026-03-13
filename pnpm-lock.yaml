@@ -39,6 +39,9 @@ importers:
       lucide-react:
         specifier: ^0.400.0
         version: 0.400.0(react@18.3.1)
+      minimatch:
+        specifier: ^9.0.9
+        version: 9.0.9
       react:
         specifier: ^18.2.0
         version: 18.3.1

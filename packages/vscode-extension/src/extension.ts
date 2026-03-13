@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import { minimatch } from 'minimatch';
 import { parseFile, parseFileContent, buildCallGraph, detectEntryPoints, partitionFlows, initTreeSitter } from '@flowmap/core';
 import { openFlowMapPanel } from './webview/panel';
 
@@ -24,11 +25,35 @@ export async function activate(context: vscode.ExtensionContext) {
         { location: vscode.ProgressLocation.Notification, title: "FlowMap: Scanning Workspace..." },
         async () => {
           const startTime = Date.now();
-          const uris = await vscode.workspace.findFiles('**/*.{ts,tsx,js,jsx,go,py}', '**/{node_modules,dist,out,build,.git}/**');
+          const config = vscode.workspace.getConfiguration('flowmap');
+          const blacklist = config.get<string[]>('blacklist') || [];
+          const whitelist = config.get<string[]>('whitelist') || [];
+          const defaultExcludes = config.get<string[]>('exclude') || ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/__pycache__/**", "**/*.test.*", "**/*.spec.*"];
+          
+          let excludePattern = `{${defaultExcludes.join(',')}}`;
+          // We'll still fetch all supported types, then manually filter using user blacklist/whitelist
+          const uris = await vscode.workspace.findFiles('**/*.{ts,tsx,js,jsx,go,py}', excludePattern);
           
           if (uris.length === 0) {
             vscode.window.showInformationMessage('FlowMap: No supported files found in workspace.');
             return;
+          }
+
+          function matchesPattern(filePath: string, pattern: string): boolean {
+            const parts = filePath.split(/[/\\]/);
+            return parts.some(part => minimatch(part, pattern)) ||
+                   minimatch(filePath, pattern) ||
+                   minimatch(filePath, `**/${pattern}/**`);
+          }
+
+          function shouldScanFile(filePath: string): boolean {
+            // Check blacklist
+            for (const pattern of blacklist) {
+              if (matchesPattern(filePath, pattern)) return false;
+            }
+            // Check whitelist
+            if (whitelist.length === 0) return true;
+            return whitelist.some(pattern => matchesPattern(filePath, pattern));
           }
 
           const allFunctions: any[] = [];
@@ -36,6 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
           for (const uri of uris) {
             const filePath = vscode.workspace.asRelativePath(uri);
+            if (!shouldScanFile(filePath)) continue;
+
             const absPath = uri.fsPath;
             
             let languageId = 'typescript' as any;
@@ -44,6 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
             else if (absPath.endsWith('.tsx')) languageId = 'tsx';
             else if (absPath.endsWith('.go')) languageId = 'go';
             else if (absPath.endsWith('.py')) languageId = 'python';
+            else if (absPath.endsWith('.java')) languageId = 'java';
+            else if (absPath.endsWith('.rs')) languageId = 'rust';
             else if (absPath.endsWith('.ts')) languageId = 'typescript';
             
             const { functions, calls } = await parseFile(filePath, absPath, wasmDir, languageId);
@@ -81,7 +110,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showErrorMessage('FlowMap: No active editor to analyze');
+        vscode.window.showErrorMessage("FlowMap: No active text editor to analyze. Make sure you're focused on a code file, or use 'Visualize Entire Codebase' instead.");
         return;
       }
 

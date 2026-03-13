@@ -94,8 +94,8 @@ export default function FunctionNode({ data }: { data: any }) {
         </div>
       </div>
 
-      <div className="fn-params">
-        ({paramsList})
+      <div className="fn-params" title={paramsList}>
+        ({paramsList.length > 50 ? paramsList.substring(0, 50) + '...' : paramsList})
       </div>
 
       {data.returnType && data.kind !== 'component' && (

@@ -1,5 +1,10 @@
 Ignore going through this file. This is only for the author.
 
+- Lazy loading to support large code bases
+- Filter files as per supported extension
+- In case its a very large code base above 500 nodes, do
+not render the full graph unless user on the left hand side selects one or more flows
+- On the left panel we should show all flow names scrollable till last
 - Publish npm package
 - Publish extension
 - Build MCP
