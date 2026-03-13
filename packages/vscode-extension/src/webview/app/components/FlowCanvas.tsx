@@ -258,19 +258,50 @@ export default function FlowCanvas({ graph, searchQuery, analysisState, focusedN
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const [rootDropdownOpen, setRootDropdownOpen] = useState(false);
 
-  // Focus effect for panning
+  // Identify root nodes (entry points or nodes with no incoming edges) currently in the graph
+  const rootNodes = useMemo(() => {
+    const incomingTargets = new Set(graph.edges.map(e => e.to));
+    const seen = new Set<string>();
+    return graph.nodes.filter(n => {
+      if (seen.has(n.id)) return false;
+      seen.add(n.id);
+      return n.isEntryPoint || !incomingTargets.has(n.id);
+    });
+  }, [graph]);
+
+  const panToNode = useCallback((nodeId: string) => {
+    if (!reactFlowInstance) return;
+    const node = reactFlowInstance.getNode(nodeId);
+    if (node) {
+      const x = node.position.x + (node.width || 280) / 2;
+      const y = node.position.y + (node.height || 120) / 2;
+      reactFlowInstance.setCenter(x, y, { zoom: 1, duration: 800 });
+    }
+    setRootDropdownOpen(false);
+  }, [reactFlowInstance]);
+
+  // Re-layout on new graph data (but don't clear focus — that's user-driven)
   useEffect(() => {
-    if (focusedNodeId && reactFlowInstance) {
-      const node = nodes.find((n: Node) => n.id === focusedNodeId);
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+  // Pan to focused node whenever it changes
+  useEffect(() => {
+    if (!focusedNodeId || !reactFlowInstance) return;
+    // Use a short delay to let the layout settle before panning
+    const timer = setTimeout(() => {
+      const node = reactFlowInstance.getNode(focusedNodeId);
       if (node) {
-        // We pan to the node
         const x = node.position.x + (node.width || 280) / 2;
         const y = node.position.y + (node.height || 120) / 2;
         reactFlowInstance.setCenter(x, y, { zoom: 1, duration: 800 });
       }
-    }
-  }, [focusedNodeId, reactFlowInstance, nodes]);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusedNodeId, reactFlowInstance, initialNodes]);
 
   // ─── Local Search Isolation ───────────
   const searchIsolatedResult = useMemo(() => {
@@ -314,13 +345,6 @@ export default function FlowCanvas({ graph, searchQuery, analysisState, focusedN
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [analysisState.gitDiff]);
-
-  // Re-layout and reset state on new graph data
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-    setFocusedNodeId(null);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   // ─── Heatmap ────────────────────────────
   const degreeMap = useMemo(() => analysisState.heatmap ? computeDegreeMap(graph) : new Map(), [graph, analysisState.heatmap]);
@@ -518,9 +542,66 @@ export default function FlowCanvas({ graph, searchQuery, analysisState, focusedN
         <Minimap />
       </ReactFlow>
 
-      {focusedNodeId && (
-        <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
-          <button 
+      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+        {rootNodes.length > 0 && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setRootDropdownOpen(prev => !prev)}
+              style={{
+                background: 'var(--vscode-button-secondaryBackground)',
+                color: 'var(--vscode-button-secondaryForeground)',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                fontSize: '12px',
+              }}
+            >
+              Go to Root ▾
+            </button>
+            {rootDropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                background: 'var(--vscode-dropdown-background)',
+                border: '1px solid var(--vscode-dropdown-border)',
+                borderRadius: '4px',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                minWidth: '200px',
+                maxHeight: '300px',
+                overflowY: 'auto',
+              }}>
+                {rootNodes.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => panToNode(n.id)}
+                    style={{
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontFamily: 'var(--vscode-editor-font-family)',
+                      borderBottom: '1px solid var(--vscode-dropdown-border)',
+                      color: 'var(--vscode-dropdown-foreground)',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ fontWeight: 500 }}>{n.name}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                      {n.filePath.split(/[/\\]/).slice(-2).join('/')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {focusedNodeId && (
+          <button
             onClick={() => setFocusedNodeId(null)}
             style={{
               background: 'var(--vscode-button-background)',
@@ -535,8 +616,8 @@ export default function FlowCanvas({ graph, searchQuery, analysisState, focusedN
           >
             Clear Focus
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

@@ -34,6 +34,7 @@ export default function Sidebar({ graph, searchQuery, onSearchChange, analysisSt
   };
 
   const toggleFlow = (flowId: string) => {
+    setFocusedNodeId(null);
     setSelectedFlows(prev => {
       const next = new Set(prev);
       if (next.has(flowId)) next.delete(flowId);
