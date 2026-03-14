@@ -68,14 +68,10 @@ export const javascriptAnalyzer: LanguageAnalyzer = {
     const paramsCapture = match.captures.find((c: any) => c.name === 'fn.params');
 
     let isExported = false;
-    let isDefaultExport = false;
     let node = declCapture.node;
     while (node && node.type !== 'program') {
       if (node.type === 'export_statement') {
         isExported = true;
-        if (node.text.startsWith('export default')) {
-          isDefaultExport = true;
-        }
         break;
       }
       node = node.parent;
@@ -135,7 +131,7 @@ export const javascriptAnalyzer: LanguageAnalyzer = {
       returnType: finalReturnType,
       isAsync: declCapture.node.text.startsWith('async'),
       isExported,
-      isEntryPoint: isDefaultExport,
+      isEntryPoint: false,
       language: filePath.endsWith('.tsx') || filePath.endsWith('.ts') ? 'typescript' : 'javascript',
       kind
     };

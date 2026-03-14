@@ -80,14 +80,15 @@ export async function activate(context: vscode.ExtensionContext) {
             allCalls.push(...calls);
           }
           
-          detectEntryPoints(allFunctions);
           const edges = buildCallGraph(allFunctions, allCalls);
-          const flows = partitionFlows(allFunctions, edges);
+          detectEntryPoints(allFunctions, edges);
+          const { flows, orphans } = partitionFlows(allFunctions, edges);
 
           const graph = {
             nodes: allFunctions,
             edges,
             flows,
+            orphans,
             scannedFiles: uris.length,
             durationMs: Date.now() - startTime
           };
@@ -131,14 +132,15 @@ export async function activate(context: vscode.ExtensionContext) {
           
           const { functions, calls } = await parseFile(filePath, absPath, wasmDir, languageId);
           
-          detectEntryPoints(functions);
           const edges = buildCallGraph(functions, calls);
-          const flows = partitionFlows(functions, edges);
+          detectEntryPoints(functions, edges);
+          const { flows, orphans } = partitionFlows(functions, edges);
 
           const graph = {
             nodes: functions,
             edges,
             flows,
+            orphans,
             scannedFiles: 1,
             durationMs: Date.now() - startTime
           };
@@ -214,8 +216,8 @@ async function computeGitDiff(
       }
     }
 
-    detectEntryPoints(oldFunctions);
     const oldEdges = buildCallGraph(oldFunctions, oldCalls);
+    detectEntryPoints(oldFunctions, oldEdges);
 
     // compare edges
     const oldEdgeSet = new Set(oldEdges.map(e => `${e.from}>>>${e.to}`));

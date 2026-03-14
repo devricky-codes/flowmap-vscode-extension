@@ -1,16 +1,11 @@
-import { FunctionNode } from '../types';
+import { FunctionNode, CallEdge } from '../types';
 
-export function detectEntryPoints(nodes: FunctionNode[]): void {
+export function detectEntryPoints(nodes: FunctionNode[], edges: CallEdge[]): void {
+  const nonSelfEdges = edges.filter(e => e.from !== e.to);
+  const calledIds = new Set(nonSelfEdges.map(e => e.to));
+  const callerIds = new Set(nonSelfEdges.map(e => e.from));
+
   for (const node of nodes) {
-    if (node.language === 'typescript' || node.language === 'javascript') {
-      if (node.name === 'main' || node.name === 'listen' || node.name === 'createRoot') {
-        node.isEntryPoint = true;
-      }
-      else if (node.filePath.endsWith('index.ts') || node.filePath.endsWith('index.js') || node.filePath.endsWith('index.tsx')) {
-        if (node.isExported || node.name === 'App') {
-          node.isEntryPoint = true; 
-        }
-      }
-    }
+    node.isEntryPoint = !calledIds.has(node.id) && callerIds.has(node.id);
   }
 }

@@ -57,6 +57,7 @@ export interface Graph {
   nodes: FunctionNode[];
   edges: CallEdge[];
   flows: Flow[];
+  orphans: string[];
   scannedFiles: number;
   durationMs: number;
 }

@@ -78,14 +78,10 @@ export const tsxAnalyzer: LanguageAnalyzer = {
     const returnCapture = match.captures.find((c: any) => c.name === 'fn.return_type');
 
     let isExported = false;
-    let isDefaultExport = false;
     let node = declCapture.node;
     while (node && node.type !== 'program') {
       if (node.type === 'export_statement') {
         isExported = true;
-        if (node.text.startsWith('export default')) {
-          isDefaultExport = true;
-        }
         break;
       }
       node = node.parent;
@@ -148,7 +144,7 @@ export const tsxAnalyzer: LanguageAnalyzer = {
       returnType: finalReturnType,
       isAsync: declCapture.node.text.startsWith('async'),
       isExported,
-      isEntryPoint: isDefaultExport,
+      isEntryPoint: false,
       language: filePath.endsWith('.tsx') || filePath.endsWith('.ts') ? 'typescript' : 'javascript',
       kind
     };
